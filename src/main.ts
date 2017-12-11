@@ -1,10 +1,11 @@
-#!/usr/bin/env node 
+#!/usr/bin/env node
 
 import * as program from "commander";
 import * as path from "path";
 import * as winston from "winston";
 import { PackhostGenerator, Unpacker, WebpackRunner } from "./";
 import { ConfigLoader, IFuncpackConfig } from "./utils";
+import {DEFAULT_OUTPUT} from "./CONSTANTS";
 
 async function runCli() {
     const p = program
@@ -51,7 +52,7 @@ async function unpack(name: string, options: any) {
         throw new Error("Could not determine route");
     }
 
-    let outputPath = ".funcpack";
+    let outputPath = DEFAULT_OUTPUT;
     try {
         if (options.output) {
             outputPath = path.join(options.output, outputPath);
@@ -98,7 +99,7 @@ async function pack(name: string, options: any) {
         throw new Error("Could not parse the uglify option");
     }
 
-    let outputPath = ".funcpack";
+    let outputPath = DEFAULT_OUTPUT;
     try {
         if (options.output) {
             outputPath = path.join(options.output, outputPath);

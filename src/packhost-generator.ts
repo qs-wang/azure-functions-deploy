@@ -3,6 +3,7 @@ import * as debugLib from "debug";
 import * as path from "path";
 
 import { FileHelper } from "./utils";
+import {DEFAULT_OUTPUT,DEFAULT_INDEX} from "./CONSTANTS"
 
 const debug = debugLib("azure-functions-pack:PackhostGenerator");
 
@@ -13,8 +14,8 @@ export class PackhostGenerator {
 
     constructor(options: IPackhostGeneratorOptions) {
         this.options = options;
-        this.options.indexFileName = this.options.indexFileName || "index.js";
-        this.options.outputPath = this.options.outputPath || ".funcpack";
+        this.options.indexFileName = this.options.indexFileName || DEFAULT_INDEX;
+        this.options.outputPath = this.options.outputPath || DEFAULT_OUTPUT;
         debug("Created new PackhostGenerator for project at: %s", this.options.projectRootPath);
     }
 
@@ -25,6 +26,7 @@ export class PackhostGenerator {
         await this.load();
         await this.createOutputDirectory();
         await this.createHostFile();
+        await this.moveMetaFiles();
         await this.updateFunctionJSONs();
         debug("Completed update of project");
     }
@@ -77,9 +79,9 @@ export class PackhostGenerator {
             if (dir.length === 1) {
                 scriptFile = dir[0];
             } else if (dir.find((v, i, o) => {
-                return v === "index.js";
+                return v === DEFAULT_INDEX;
             })) {
-                scriptFile = "index.js";
+                scriptFile = DEFAULT_INDEX;
             } else {
                 debug("Function %s does not have a valid start file", name, {
                     directory: dir,
@@ -119,7 +121,7 @@ export class PackhostGenerator {
         }
 
         debug("Creating output directory: %s", outputDirPath);
-        await FileHelper.mkdir(outputDirPath);
+        await FileHelper.mkDirP(outputDirPath);
     }
 
     private async createHostFile() {
@@ -144,24 +146,46 @@ export class PackhostGenerator {
 
         exportString = "module.exports = {\n" + exportString + "}";
 
-        debug("Writing contents to host file");
+        debug("Writing contents to host file",path.join(this.options.projectRootPath, this.options.outputPath, this.options.indexFileName));
+        const hostFilePath = path.join(this.options.projectRootPath, this.options.outputPath, this.options.indexFileName);
+
         await FileHelper.writeFileUtf8(
-            path.join(this.options.projectRootPath, this.options.outputPath, this.options.indexFileName),
+            hostFilePath,
             exportString);
+    }
+
+    private async moveMetaFiles() {
+        debug("Moving meta fils, i.e host.json, funciton.json");
+
+        await FileHelper.copy(path.resolve(this.options.projectRootPath, "host.json"),
+          path.resolve(this.options.outputPath, "host.json"));
+
+        for (const [name, fx] of this.functionsMap) {
+
+          debug("Moving meta for function(%s)", name);
+          const fxJsonPath = path.resolve(this.options.projectRootPath, name, "function.json");
+
+          const fxJsoneTargetFolderPath = path.resolve(this.options.outputPath, name);
+          if(! await FileHelper.exists(fxJsoneTargetFolderPath)){
+            await FileHelper.mkdir(fxJsoneTargetFolderPath);
+          }
+
+          await FileHelper.copy(fxJsonPath, path.resolve(fxJsoneTargetFolderPath,"function.json"), )
+        }
     }
 
     private async updateFunctionJSONs() {
         debug("Updating Function JSONS");
         for (const [name, fx] of this.functionsMap) {
             debug("Updating function(%s)", name);
-            const fxJsonPath = path.resolve(this.options.projectRootPath, name, "function.json");
+            const fxJsonPath = path.resolve(this.options.outputPath, name, "function.json");
             const fxvar = this.safeFunctionName(fx.name);
             const fxJson = await FileHelper.readFileAsJSON(fxJsonPath);
 
             // TODO: This way of keeping track of the original settings is hacky
             fxJson._originalEntryPoint = fx._originalEntryPoint;
             fxJson._originalScriptFile = fx._originalScriptFile;
-            fxJson.scriptFile = `../${this.options.outputPath}/${this.options.indexFileName}`;
+            fxJson.scriptFile = `../${this.options.indexFileName}`;
             fxJson.entryPoint = fxvar;
             await FileHelper.overwriteFileUtf8(fxJsonPath, JSON.stringify(fxJson, null, " "));
         }

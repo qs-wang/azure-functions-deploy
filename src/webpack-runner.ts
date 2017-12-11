@@ -3,6 +3,7 @@ import * as path from "path";
 import * as webpack from "webpack";
 import { IPackhostGeneratorOptions } from "./";
 import { FileHelper } from "./utils";
+import {DEFAULT_OUTPUT,DEFAULT_INDEX,TEMP_OUTPUT} from "./CONSTANTS"
 
 const debug = debugLib("azure-functions-pack:WebpackRunner");
 
@@ -16,8 +17,8 @@ export interface IWebpackRunner {
 
 export class WebpackRunner {
     public static run(options: IWebpackRunner): Promise<any> {
-        options.indexFileName = options.indexFileName || "index.js";
-        options.outputPath = options.outputPath || ".funcpack";
+        options.indexFileName = options.indexFileName || DEFAULT_INDEX;
+        options.outputPath = options.outputPath || DEFAULT_OUTPUT;
         options.uglify = options.uglify || false;
         options.ignoredModules = options.ignoredModules || [];
 
@@ -27,7 +28,7 @@ export class WebpackRunner {
             const newPath = path.join(options.projectRootPath,
                 options.outputPath, "original." + options.indexFileName);
 
-            const outputPath = path.join(options.projectRootPath, options.outputPath, "output.js");
+            const outputPath = path.join(options.projectRootPath, options.outputPath, TEMP_OUTPUT);
 
             const ignoredModules: { [key: string]: string } = {};
 
@@ -44,7 +45,7 @@ export class WebpackRunner {
                     __filename: false,
                 },
                 output: {
-                    filename: "output.js",
+                    filename: TEMP_OUTPUT,
                     library: "index",
                     libraryTarget: "commonjs2",
                     path: path.join(options.projectRootPath, options.outputPath),

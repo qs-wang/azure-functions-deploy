@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as rimraf from "rimraf";
+import * as path from "path";
 
 export class FileHelper {
     public static readdir(path: string): Promise<string[]> {
@@ -89,6 +90,37 @@ export class FileHelper {
         });
     }
 
+    //Create the full path if any of the level is missing.
+    public static mkDirP(targetPath: string): Promise<string> {
+        const sep = path.sep;
+        const initDir = path.isAbsolute(targetPath) ? sep : '';
+        const baseDir = '.';
+        return Promise.resolve(targetPath.split(sep))
+        .then(data=>{
+          return data.reduce((promise, childDir) => {
+            return promise.then((parentDir)=>{
+              const curDir = path.resolve(initDir,parentDir, childDir);
+
+              return curDir;
+            }).then(curDir=>{
+
+              return Promise.all([FileHelper.exists(curDir),curDir]);
+            }).then(([exists,curDir])=>{
+              if(!exists){
+                return FileHelper.mkdir(curDir)
+                  .then(()=>{
+                    return curDir;
+                  })
+              }else{
+                return curDir;
+              }
+
+            })
+          }, Promise.resolve(''));
+
+        })
+      }
+
     public static rimraf(path: string): Promise<string> {
         return new Promise((resolve, reject) => {
             rimraf(path, (err) => {
@@ -98,6 +130,24 @@ export class FileHelper {
                 resolve();
             });
         });
+    }
+
+    public static copy(source:string, target:string) : Promise<string>{
+      return new Promise(function(resolve, reject) {
+          const sourceStream = fs.createReadStream(source);
+          const targetStream = fs.createWriteStream(target);
+
+          const rejectCleanup = function (err:any) {
+              sourceStream.destroy();
+              targetStream.end();
+              reject(err);
+          }
+
+          sourceStream.on('error', rejectCleanup);
+          targetStream.on('error', rejectCleanup);
+          targetStream.on('finish', resolve);
+          sourceStream.pipe(targetStream);
+      });
     }
 
     public static rename(pathOld: string, pathNew: string) {
