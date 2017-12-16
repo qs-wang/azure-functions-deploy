@@ -9,6 +9,7 @@
     "removeComments": true,
     "target": "es6",
     "sourceMap": true,
+    "lib": [ "es2015" ],
     "newLine": "LF"
   },
   "include": [

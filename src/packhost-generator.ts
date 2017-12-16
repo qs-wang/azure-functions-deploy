@@ -1,11 +1,10 @@
 
-import * as debugLib from "debug";
 import * as path from "path";
+import * as logger from "winston";
 
 import { FileHelper } from "./utils";
-import {DEFAULT_OUTPUT,DEFAULT_INDEX} from "./CONSTANTS"
+import {DEFAULT_OUTPUT,DEFAULT_INDEX,IFxFunction,IPackhostGeneratorOptions} from "./CONSTANTS";
 
-const debug = debugLib("azure-functions-pack:PackhostGenerator");
 
 export class PackhostGenerator {
 
@@ -16,23 +15,24 @@ export class PackhostGenerator {
         this.options = options;
         this.options.indexFileName = this.options.indexFileName || DEFAULT_INDEX;
         this.options.outputPath = this.options.outputPath || DEFAULT_OUTPUT;
-        debug("Created new PackhostGenerator for project at: %s", this.options.projectRootPath);
+        logger.debug("Created new PackhostGenerator for project at: %s", this.options.projectRootPath);
     }
 
     // TODO: Should probably replace this whole class with a bunch of static methods. Don't need a class.
     public async updateProject() {
-        debug("Starting update of Project");
+        logger.debug("Starting update of Project");
         await this.throwIfInFunction();
         await this.load();
         await this.createOutputDirectory();
-        await this.createHostFile();
+        await this.createHostJSFile();
         await this.moveMetaFiles();
         await this.updateFunctionJSONs();
-        debug("Completed update of project");
+        logger.debug("Completed update of project");
     }
 
+
     private async throwIfInFunction() {
-        debug("Checking if we're in a function");
+        logger.debug("Checking if we're in a function");
         if (await FileHelper.exists(path.resolve(this.options.projectRootPath, "function.json"))) {
             throw new Error("function.json detected: run this from "
                 + "the root of your Function App, not inside of a Function");
@@ -40,92 +40,26 @@ export class PackhostGenerator {
     }
 
     private async load() {
-        const functions: string[] = (await FileHelper.readdir(this.options.projectRootPath))
-            .filter(async (item) =>
-                (await FileHelper.stat(path.resolve(this.options.projectRootPath, item))).isDirectory());
-        debug("Found these directories in project root: %s", functions.join(", "));
-        for (const item of functions) {
-            if (await FileHelper.exists(path.resolve(this.options.projectRootPath, item, "function.json"))) {
-                const fn = await this.loadFunction(item);
-                if (fn !== null) {
-                    this.functionsMap.set(item, fn);
-                }
-            }
-        }
+        this.functionsMap = await FileHelper.loadFunctionsFromDirectory(this.options.projectRootPath);
     }
 
-    private async loadFunction(name: string): Promise<IFxFunction> {
-        let entryPoint = null;
-        let scriptFile = null;
-        let originalEntryPoint: string | boolean = false;
-        let originalScriptFile: string | boolean = false;
-        debug("Found function: %s", name);
-        const fxJsonPath = path.resolve(this.options.projectRootPath, name, "function.json");
-        const fxJson = await FileHelper.readFileAsJSON(fxJsonPath);
 
-        // TODO: Have to overwite this scriptFile setting later on. Having to use temporary setting right now.
-        if (fxJson._originalScriptFile) {
-            debug("Found originalScriptFile setting: %s", fxJson._originalScriptFile);
-            scriptFile = fxJson._originalScriptFile;
-            originalScriptFile = fxJson._originalScriptFile;
-        } else if (fxJson.scriptFile && fxJson.scriptFile.endsWith(".js") && !fxJson._originalScriptFile) {
-            scriptFile = fxJson.scriptFile;
-            originalScriptFile = fxJson.scriptFile;
-        } else if (fxJson.scriptFile && !fxJson.scriptFile.endsWith(".js") && !fxJson._originalScriptFile) {
-            return null;
-        } else {
-            let dir: string[] = await FileHelper.readdir(path.resolve(this.options.projectRootPath, name));
-            dir = dir.filter((f) => f.endsWith(".js"));
-            if (dir.length === 1) {
-                scriptFile = dir[0];
-            } else if (dir.find((v, i, o) => {
-                return v === DEFAULT_INDEX;
-            })) {
-                scriptFile = DEFAULT_INDEX;
-            } else {
-                debug("Function %s does not have a valid start file", name, {
-                    directory: dir,
-                });
-                return null;
-                // throw new Error(`Function ${name} does not have a valid start file`);
-            }
-            originalScriptFile = scriptFile;
-        }
-
-         // TODO: improve the logic for choosing entry point - failure sure not all scenarios are covered here.
-         // TODO: Have to overwrite this entryPoint later on. Using temporary setting for now.
-        if (fxJson._originalEntryPoint) {
-            debug("Found originalEntryPoint setting: %s", fxJson._originalEntryPoint);
-            entryPoint = fxJson._originalEntryPoint;
-            originalEntryPoint = fxJson._originalEntryPoint;
-        } else if (fxJson.entryPoint && fxJson._originalEntryPoint !== false) {
-            entryPoint = fxJson.entryPoint;
-            originalEntryPoint = fxJson.entryPoint;
-        }
-
-        debug("Loaded function(%s) using entryPoint: %s - scriptFile: %s", name, scriptFile, entryPoint);
-        return Promise.resolve({
-            name,
-            scriptFile,
-            entryPoint,
-            _originalEntryPoint: originalEntryPoint,
-            _originalScriptFile: originalScriptFile,
-        });
-    }
 
     private async createOutputDirectory() {
         const outputDirPath = path.join(this.options.projectRootPath, this.options.outputPath);
         if (await FileHelper.exists(outputDirPath)) {
-            debug("Deleting previous output directory: %s", this.options.outputPath);
+            logger.debug("Deleting previous output directory: %s", this.options.outputPath);
             await FileHelper.rimraf(outputDirPath);
         }
 
-        debug("Creating output directory: %s", outputDirPath);
+        logger.debug("Creating output directory: %s", outputDirPath);
         await FileHelper.mkDirP(outputDirPath);
     }
 
-    private async createHostFile() {
-        debug("Generating host file");
+    // create the host js file to allow the webpack generate the all-in-one bundle file for
+    // multiple functions
+    private async createHostJSFile() {
+        logger.debug("Generating host file");
         const exportStrings: string[] = [];
 
         const outputDirPath = path.join(this.options.projectRootPath, this.options.outputPath);
@@ -146,7 +80,7 @@ export class PackhostGenerator {
 
         exportString = "module.exports = {\n" + exportString + "}";
 
-        debug("Writing contents to host file",path.join(this.options.projectRootPath, this.options.outputPath, this.options.indexFileName));
+        logger.debug("Writing contents to host file",path.join(this.options.projectRootPath, this.options.outputPath, this.options.indexFileName));
         const hostFilePath = path.join(this.options.projectRootPath, this.options.outputPath, this.options.indexFileName);
 
         await FileHelper.writeFileUtf8(
@@ -155,14 +89,14 @@ export class PackhostGenerator {
     }
 
     private async moveMetaFiles() {
-        debug("Moving meta fils, i.e host.json, funciton.json");
+        logger.debug("Moving meta fils, i.e host.json, funciton.json");
 
         await FileHelper.copy(path.resolve(this.options.projectRootPath, "host.json"),
           path.resolve(this.options.outputPath, "host.json"));
 
         for (const [name, fx] of this.functionsMap) {
 
-          debug("Moving meta for function(%s)", name);
+          logger.debug("Moving meta for function(%s)", name);
           const fxJsonPath = path.resolve(this.options.projectRootPath, name, "function.json");
 
           const fxJsoneTargetFolderPath = path.resolve(this.options.outputPath, name);
@@ -175,16 +109,18 @@ export class PackhostGenerator {
     }
 
     private async updateFunctionJSONs() {
-        debug("Updating Function JSONS");
+        logger.debug("Updating Function JSONS");
         for (const [name, fx] of this.functionsMap) {
-            debug("Updating function(%s)", name);
+            logger.debug("Updating function(%s)", name);
             const fxJsonPath = path.resolve(this.options.outputPath, name, "function.json");
             const fxvar = this.safeFunctionName(fx.name);
             const fxJson = await FileHelper.readFileAsJSON(fxJsonPath);
 
             // TODO: This way of keeping track of the original settings is hacky
-            fxJson._originalEntryPoint = fx._originalEntryPoint;
+            // TODO: Q.S. We are not changing the original file, so no need of this?
+            // fxJson._originalEntryPoint = fx._originalEntryPoint;
             fxJson._originalScriptFile = fx._originalScriptFile;
+
             fxJson.scriptFile = `../${this.options.indexFileName}`;
             fxJson.entryPoint = fxvar;
             await FileHelper.overwriteFileUtf8(fxJsonPath, JSON.stringify(fxJson, null, " "));
@@ -194,18 +130,4 @@ export class PackhostGenerator {
     private safeFunctionName(name: string): string {
         return name.replace("-", "$dash");
     }
-}
-
-export interface IPackhostGeneratorOptions {
-    projectRootPath: string;
-    outputPath?: string;
-    indexFileName?: string;
-}
-
-export interface IFxFunction {
-    name: string;
-    entryPoint: string;
-    scriptFile: string;
-    _originalEntryPoint: string | boolean;
-    _originalScriptFile: string | boolean;
 }

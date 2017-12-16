@@ -1,12 +1,13 @@
 {
-  "name": "azure-functions-pack",
-  "version": "0.3.1",
+  "name": "@stackchat/azure-functions-pack",
+  "version": "0.3.2",
   "description": "azure-functions-pack",
   "license": "MIT",
-  "repository": "https://github.com/Azure/azure-functions-pack",
-  "author": "Microsoft Corp.",
+  "repository": "https://github.com/qs-wang/azure-functions-pack",
+  "author": "Microsoft Corp., Stackchat",
   "contributors": [
-    "Chris Anderson <chrande@microsoft.com> (https://github.com/christopheranderson)"
+    "Chris Anderson <chrande@microsoft.com> (https://github.com/christopheranderson)",
+    "Q.S. Wang (https://github.com/qs-wang)"
   ],
   "bin": {
     "funcpack": "./lib/main.js"
@@ -23,33 +24,42 @@
   "scripts": {
     "clean": "rimraf lib",
     "lint": "tslint --force --format verbose \"src/**/*.ts\"",
-    "build": "npm run clean && npm run lint && echo Using TypeScript && tsc --version && tsc --pretty",
+    "build": "npm run clean  && mkdir lib && mkdir lib/provider && cp -r ./src/provider/armTemplates ./lib/provider/ && npm run lint && echo Using TypeScript && tsc --version && tsc --pretty",
     "test": "npm run build && mocha --compilers ts:ts-node/register --recursive test/**/*-spec.ts",
     "watch": "npm run build -- --watch",
     "watch:test": "npm run test -- --watch",
     "e2etst": "npm run "
   },
   "dependencies": {
+    "@types/archiver": "^2.0.1",
+    "@types/bluebird": "^3.5.18",
+    "archiver": "^2.1.0",
+    "az-login": "^0.3.0",
+    "azure-arm-resource": "^3.0.0-preview",
+    "azure-arm-website": "^2.0.0-preview",
+    "bluebird": "^3.5.1",
     "commander": "~2.9.0",
-    "debug": "~2.6.1",
+    "debug": "^2.6.9",
+    "jsonpath": "^1.0.0",
     "rimraf": "~2.5.4",
     "webpack": "~3.5.6",
     "winston": "~2.3.1"
   },
   "devDependencies": {
-    "@types/chai": "3.5.0",
+    "@types/bluebird": "^3.5.18",
     "@types/commander": "~2.3.31",
     "@types/debug": "0.0.29",
-    "@types/mocha": "2.2.41",
+    "@types/jest": "~21.1.5",
     "@types/node": "6.0.31",
     "@types/rimraf": "0.0.28",
-    "@types/webpack": "~3.0.0",
+    "@types/webpack": "^3.0.14",
     "@types/winston": "~2.2.0",
     "chai": "~3.5.0",
+    "jest": "^21.2.1",
     "mocha": "~3.0.0",
     "ts-node": "~1.0.0",
     "tslint": "~4.0.0",
-    "typescript": "~2.2.0"
+    "typescript": "~2.6.2"
   },
   "engines": {
     "node": ">=6.5.0"

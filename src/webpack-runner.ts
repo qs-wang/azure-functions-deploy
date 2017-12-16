@@ -1,11 +1,10 @@
-import * as debugLib from "debug";
 import * as path from "path";
 import * as webpack from "webpack";
-import { IPackhostGeneratorOptions } from "./";
-import { FileHelper } from "./utils";
-import {DEFAULT_OUTPUT,DEFAULT_INDEX,TEMP_OUTPUT} from "./CONSTANTS"
 
-const debug = debugLib("azure-functions-pack:WebpackRunner");
+import { FileHelper, createLogger } from "./utils";
+import {DEFAULT_OUTPUT,DEFAULT_INDEX,TEMP_OUTPUT,IFxFunction,IPackhostGeneratorOptions} from "./CONSTANTS"
+
+const debug = createLogger("azure.functions.webpack.WebpackRunner").debug;
 
 export interface IWebpackRunner {
     projectRootPath: string;
@@ -14,6 +13,7 @@ export interface IWebpackRunner {
     uglify?: boolean;
     ignoredModules?: string[];
 }
+
 
 export class WebpackRunner {
     public static run(options: IWebpackRunner): Promise<any> {
@@ -73,7 +73,7 @@ export class WebpackRunner {
                 }
                 debug("\n" + stats.toString());
 
-                debug("Saving the original the entry file: %s -> %s", oldPath, newPath);
+                debug(`Saving the original the entry file: oldPath -> newPath"`);
                 if (await FileHelper.exists(newPath)) {
                     await FileHelper.rimraf(newPath);
                 }
