@@ -77,6 +77,7 @@ Usage: pack [options] <path>
     -h, --help           output usage information
     -u, --uglify         Uglify the project when webpacking
     -o, --output <path>  Path for output directory
+```
 
 ### publish
 
@@ -92,7 +93,6 @@ Usage: publish [options] <name>
     -d, --dir <path>     Path for bundle directory
 ```
 
-```
 ### deploy
 
 ```
