@@ -1,10 +1,9 @@
-
 import * as path from "path";
-import * as logger from "winston";
 
-import { FileHelper } from "./utils";
+import { FileHelper,createLogger } from "./utils";
 import {DEFAULT_OUTPUT,DEFAULT_INDEX,IFxFunction,IPackhostGeneratorOptions} from "./CONSTANTS";
 
+const logger = createLogger('azure.functions.webpack.PackhostGenerator');
 
 export class PackhostGenerator {
 
@@ -15,7 +14,7 @@ export class PackhostGenerator {
         this.options = options;
         this.options.indexFileName = this.options.indexFileName || DEFAULT_INDEX;
         this.options.outputPath = this.options.outputPath || DEFAULT_OUTPUT;
-        logger.debug("Created new PackhostGenerator for project at: %s", this.options.projectRootPath);
+        logger.debug(`Created new PackhostGenerator for project at: ${ this.options.projectRootPath}`);
     }
 
     // TODO: Should probably replace this whole class with a bunch of static methods. Don't need a class.
@@ -48,11 +47,11 @@ export class PackhostGenerator {
     private async createOutputDirectory() {
         const outputDirPath = path.join(this.options.projectRootPath, this.options.outputPath);
         if (await FileHelper.exists(outputDirPath)) {
-            logger.debug("Deleting previous output directory: %s", this.options.outputPath);
+            logger.debug(`Deleting previous output directory: ${this.options.outputPath}`);
             await FileHelper.rimraf(outputDirPath);
         }
 
-        logger.debug("Creating output directory: %s", outputDirPath);
+        logger.debug(`Creating output directory: ${outputDirPath}`);
         await FileHelper.mkDirP(outputDirPath);
     }
 
@@ -68,7 +67,8 @@ export class PackhostGenerator {
 
         for (const [name, fx] of this.functionsMap) {
             const fxvar = this.safeFunctionName(fx.name);
-            let exportStmt = `    "${fxvar}": require("${rootRelPath}/${fx.name}/${fx._originalScriptFile}")`;
+            let exportStmt = `    "${fxvar}": require("${rootRelPath}/${name}/${fx._originalScriptFile}")`;
+            logger.debug(`The export string is ${exportStmt}`);
             if (fx.entryPoint) {
                 exportStmt += `.${fx.entryPoint}`;
             }
@@ -79,10 +79,9 @@ export class PackhostGenerator {
             exportStrings.reduce((p, c, i, a) => p + c + ((i !== exportStrings.length - 1) ? ",\n" : "\n"), "");
 
         exportString = "module.exports = {\n" + exportString + "}";
-
-        logger.debug("Writing contents to host file",path.join(this.options.projectRootPath, this.options.outputPath, this.options.indexFileName));
+        
         const hostFilePath = path.join(this.options.projectRootPath, this.options.outputPath, this.options.indexFileName);
-
+        logger.debug(`Writing contents to host file: ${hostFilePath}`);
         await FileHelper.writeFileUtf8(
             hostFilePath,
             exportString);
@@ -96,7 +95,7 @@ export class PackhostGenerator {
 
         for (const [name, fx] of this.functionsMap) {
 
-          logger.debug("Moving meta for function(%s)", name);
+          logger.debug(`Moving meta for function${name}`);
           const fxJsonPath = path.resolve(this.options.projectRootPath, name, "function.json");
 
           const fxJsoneTargetFolderPath = path.resolve(this.options.outputPath, name);
@@ -111,16 +110,12 @@ export class PackhostGenerator {
     private async updateFunctionJSONs() {
         logger.debug("Updating Function JSONS");
         for (const [name, fx] of this.functionsMap) {
-            logger.debug("Updating function(%s)", name);
+            logger.debug(`Updating function${name}`);
             const fxJsonPath = path.resolve(this.options.outputPath, name, "function.json");
             const fxvar = this.safeFunctionName(fx.name);
             const fxJson = await FileHelper.readFileAsJSON(fxJsonPath);
 
-            // TODO: This way of keeping track of the original settings is hacky
-            // TODO: Q.S. We are not changing the original file, so no need of this?
-            // fxJson._originalEntryPoint = fx._originalEntryPoint;
             fxJson._originalScriptFile = fx._originalScriptFile;
-
             fxJson.scriptFile = `../${this.options.indexFileName}`;
             fxJson.entryPoint = fxvar;
             await FileHelper.overwriteFileUtf8(fxJsonPath, JSON.stringify(fxJson, null, " "));

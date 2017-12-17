@@ -1,7 +1,7 @@
 import * as winston from "winston";
 
 const winstonLogger = new winston.Logger({
-  level: 'debug',
+  level: process.env.loglevel || 'info',
   transports: [
     new (winston.transports.Console)({
       colorize: true

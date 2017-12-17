@@ -1,10 +1,10 @@
-import * as fs from "fs";
-import * as rimraf from "rimraf";
-import * as path from "path";
+import * as fs from 'fs';
+import * as rimraf from 'rimraf';
+import * as path from 'path';
 import * as zip from 'archiver';
 import { createLogger } from './logger';
 
-import {DEFAULT_OUTPUT,DEFAULT_INDEX,IFxFunction,IPackhostGeneratorOptions} from "../CONSTANTS";
+import {DEFAULT_OUTPUT,DEFAULT_INDEX,IFxFunction,IPackhostGeneratorOptions} from '../CONSTANTS';
 
 const logger = createLogger('azure.functions.webpack.FileHelper');
 
@@ -33,7 +33,7 @@ export class FileHelper {
 
   public static readFileUtf8(path: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      fs.readFile(path, "utf8", (err, content: string) => {
+      fs.readFile(path, 'utf8', (err, content: string) => {
         if (err) {
           return reject(err);
         }
@@ -170,9 +170,9 @@ export class FileHelper {
     const functions: string[] = (await FileHelper.readdir(projectPath))
         .filter(async (item) =>
             (await FileHelper.stat(path.resolve(projectPath, item))).isDirectory());
-    logger.debug(`Found these directories in project root: ${functions.join(", ")}`);
+    logger.debug(`Found these directories in project root: ${functions.join(', ')}`);
     for (const item of functions) {
-        if (await FileHelper.exists(path.resolve(projectPath, item, "function.json"))) {
+        if (await FileHelper.exists(path.resolve(projectPath, item, 'function.json'))) {
             const fn = await FileHelper.loadFunction(path.resolve(projectPath, item));
             if (fn !== null) {
                 functionsMap.set(item, fn);
@@ -188,23 +188,23 @@ export class FileHelper {
       let scriptFile = null;
       // let originalEntryPoint: string | boolean = false;
       let originalScriptFile: string | boolean = false;
-      logger.debug("Found function: ${name}");
-      const fxJsonPath = path.resolve(name, "function.json");
+      logger.debug(`Found function: ${name}`);
+      const fxJsonPath = path.resolve(name, 'function.json');
       const fxJson = await FileHelper.readFileAsJSON(fxJsonPath);
 
       // TODO: Have to overwite this scriptFile setting later on. Having to use temporary setting right now.
       if (fxJson._originalScriptFile) {
-          logger.debug("Found originalScriptFile setting: ${fxJson._originalScriptFile}");
+          logger.debug(`Found originalScriptFile setting: ${fxJson._originalScriptFile}`);
           scriptFile = fxJson._originalScriptFile;
           originalScriptFile = fxJson._originalScriptFile;
-      } else if (fxJson.scriptFile && fxJson.scriptFile.endsWith(".js") && !fxJson._originalScriptFile) {
+      } else if (fxJson.scriptFile && fxJson.scriptFile.endsWith('.js') && !fxJson._originalScriptFile) {
           scriptFile = fxJson.scriptFile;
           originalScriptFile = fxJson.scriptFile;
-      } else if (fxJson.scriptFile && !fxJson.scriptFile.endsWith(".js") && !fxJson._originalScriptFile) {
+      } else if (fxJson.scriptFile && !fxJson.scriptFile.endsWith('.js') && !fxJson._originalScriptFile) {
           return null;
       } else {
           let dir: string[] = await FileHelper.readdir(name);
-          dir = dir.filter((f) => f.endsWith(".js"));
+          dir = dir.filter((f) => f.endsWith('.js'));
           if (dir.length === 1) {
               scriptFile = dir[0];
           } else if (dir.find((v, i, o) => {
@@ -222,7 +222,7 @@ export class FileHelper {
        // TODO: improve the logic for choosing entry point - failure sure not all scenarios are covered here.
        // TODO: Have to overwrite this entryPoint later on. Using temporary setting for now.
       // if (fxJson._originalEntryPoint) {
-      //     logger.debug("Found originalEntryPoint setting: %s", fxJson._originalEntryPoint);
+      //     logger.debug('Found originalEntryPoint setting: %s', fxJson._originalEntryPoint);
       //     entryPoint = fxJson._originalEntryPoint;
       //     originalEntryPoint = fxJson._originalEntryPoint;
       // } else

@@ -1,48 +1,42 @@
 //Originally from serverless.com's code. Converted to Typescript code, and made the changes to fit my requirement.
 //Mojor changes except for typescript related
-//1. Uisng kudu zipdeploy, not the zip api.
+//1. Used kudu zipdeploy api, not the zip api.
 //2. Removed the git template.
+//3. Used nodejs sdk for checking existence of app.
 
-import * as  BbPromise from 'bluebird';
-// import * as logger from "winston";
-// const _ = require('lodash');
-import * as ResourceManagement  from 'azure-arm-resource';
-import * as path  from 'path';
+import * as Promise from 'bluebird';
+import * as ResourceManagement from 'azure-arm-resource';
+import * as path from 'path';
 import * as fs from 'fs';
 import * as request from 'request';
-
-import {createLogger} from '../utils';
+import { createLogger } from '../utils';
+import { error } from 'util';
 
 //TODO: need understand type script's declear file. Seem it is there, but the import doesn't work
 const WebSiteManagementClient = require('azure-arm-website');
-
 const dns = require('dns');
 const jsonpath = require('jsonpath');
-// const parseBindings = require('../shared/parseBindings');
-
 const { login } = require('az-login');
 const config = require('../../config');
-
 const pkg = require('../../package.json');
-
 const logger = createLogger("azure.functions.webpack.azureProvider");
 
 //FIXME: so far can only show the general error message which is dreictly returns from azure.
 // figure the way to get the real, meaningful error message.
 export class AzureProvider {
-  functionAppName:string;
-  resourceGroupName:string;
-  deploymentName:string;
-  location:string;
-  principalCredentials:any;
-  subscriptionId:string;
-  functionsAdminKey:string;
+  functionAppName: string;
+  resourceGroupName: string;
+  deploymentName: string;
+  location: string;
+  principalCredentials: any;
+  subscriptionId: string;
+  functionsAdminKey: string;
   existingFunctionApp = false;
-  deployedFunctionNames:string[] = [];
-  invocationId:string;
-  log:Function = console.log;
+  deployedFunctionNames: string[] = [];
+  invocationId: string;
+  log: Function = console.log;
 
-  constructor(options:any) {
+  constructor(options: any) {
     this.location = options.location || 'westus';
     this.functionAppName = options.functionAppName;
 
@@ -52,12 +46,14 @@ export class AzureProvider {
 
   public login() {
     logger.info(`Login to azure`);
-    return login({ interactiveLoginHandler: (code:string, message:string) => {
-      // Override the interactive login handler, in order to be
-      // able to append the Serverless prefix to the displayed message.
-      //TODO: what is this really for???
-      logger.info(message);
-    }}).then((result:any) => {
+    return login({
+      interactiveLoginHandler: (code: string, message: string) => {
+        // Override the interactive login handler, in order to be
+        // able to append the Serverless prefix to the displayed message.
+        //TODO: what is this really for???
+        logger.info(message);
+      }
+    }).then((result: any) => {
       this.principalCredentials = result.credentials;
       this.subscriptionId = result.subscriptionId;
       logger.info(`Login to azure succesfully`);
@@ -65,34 +61,35 @@ export class AzureProvider {
     });
   }
 
-  public createResourceGroup () {
-    if(!this.functionAppName){
+  public createResourceGroup() {
+    if (!this.functionAppName) {
       throw 'Must given a unique function App name';
     }
 
     const groupParameters = {
-      //TODO: location shoudn't be hardcoded.
       location: this.location,
       tags: { sampletag: 'sampleValue' }
     };
 
     logger.info(`Creating resource group: ${this.resourceGroupName}`);
-    const resourceClient = new ResourceManagement.ResourceManagementClient(this.principalCredentials, this.subscriptionId);
+    const resourceClient = new ResourceManagement.ResourceManagementClient(
+      this.principalCredentials, this.subscriptionId);
+
     resourceClient.addUserAgentInfo(`${pkg.name}/${pkg.version}`);
 
-    return new BbPromise((resolve:Function, reject:Function) => {
+    return new Promise((resolve: Function, reject: Function) => {
       resourceClient.resourceGroups.createOrUpdate(this.resourceGroupName,
-        groupParameters, (error:Error, result:any) => {
+        groupParameters, (error: Error, result: any) => {
           if (error) return reject(error);
           resolve(result);
         })
-    }).then((result)=>{
+    }).then((result) => {
       logger.info(`Created resource group: ${this.resourceGroupName}`);
       return result;
     });
   }
 
-  public createFunctionApp () {
+  public createFunctionApp() {
     logger.info(`Creating function app: ${this.functionAppName}`);
     const resourceClient = new ResourceManagement.ResourceManagementClient(this.principalCredentials, this.subscriptionId);
     let parameters = { functionAppName: { value: this.functionAppName } };
@@ -146,10 +143,10 @@ export class AzureProvider {
       }
     };
 
-    return new BbPromise((resolve:Function, reject:Function) => {
+    return new Promise((resolve: Function, reject: Function) => {
       resourceClient.deployments.createOrUpdate(this.resourceGroupName,
         this.deploymentName,
-        deploymentParameters, (error:Error, result:any) => {
+        deploymentParameters, (error: Error, result: any) => {
           if (error) return reject(error);
 
           logger.info('Waiting for Kudu endpoint...');
@@ -159,33 +156,33 @@ export class AzureProvider {
           }, 10000);
         });
     })
-    .then((result)=>{
-      logger.info(`Funciton App Created: ${this.resourceGroupName}`);
-      return result;
-    });
+      .then((result) => {
+        logger.info(`Funciton App Created: ${this.resourceGroupName}`);
+        return result;
+      });
   }
 
-  public deleteDeployment () {
+  public deleteDeployment() {
     logger.info(`Deleting deployment: ${this.deploymentName}`);
     const resourceClient = new ResourceManagement.ResourceManagementClient(this.principalCredentials, this.subscriptionId);
     resourceClient.addUserAgentInfo(`${pkg.name}/${pkg.version}`);
 
-    return new BbPromise((resolve:Function, reject:Function) => {
+    return new Promise((resolve: Function, reject: Function) => {
       resourceClient.deployments.deleteMethod(this.resourceGroupName,
-        this.deploymentName, (error:Error, result:any) => {
+        this.deploymentName, (error: Error, result: any) => {
           if (error) return reject(error);
           resolve(result);
         });
     });
   }
 
-  public deleteResourceGroup () {
+  public deleteResourceGroup() {
     logger.info(`Deleting resource group: ${this.resourceGroupName}`);
     const resourceClient = new ResourceManagement.ResourceManagementClient(this.principalCredentials, this.subscriptionId);
     resourceClient.addUserAgentInfo(`${pkg.name}/${pkg.version}`);
 
-    return new BbPromise((resolve:Function, reject:Function) => {
-      resourceClient.resourceGroups.deleteMethod(this.resourceGroupName, (error:Error, result:any) => {
+    return new Promise((resolve: Function, reject: Function) => {
+      resourceClient.resourceGroups.deleteMethod(this.resourceGroupName, (error: Error, result: any) => {
         if (error) {
           reject(error);
         } else {
@@ -195,65 +192,29 @@ export class AzureProvider {
     });
   }
 
-  public getAdminKey () {
-    const options = {
-      url: `https://${this.functionAppName}${config.scmDomain}${config.masterKeyApiPath}`,
-      json: true,
-      headers: {
-        Authorization: config.bearer + this.principalCredentials.tokenCache._entries[0].accessToken
-      }
-    };
-
-    return new BbPromise((resolve:Function, reject:Function) => {
-      request(options, (err:any, response:any, body:any) => {
-        if (err) return reject(err);
-        if (response.statusCode !== 200) return reject(body);
-
-        this.functionsAdminKey = body.masterKey;
-
-        resolve(body.masterKey);
-      });
-    });
-  }
-
-  public pingHostStatus (functionName:string) {
-    const requestUrl = `https://${this.functionAppName}${config.functionAppDomain}/admin/functions/${functionName}/status`;
-    const options = {
-      host: this.functionAppName + config.functionAppDomain,
-      method: 'get',
-      url: requestUrl,
-      json: true,
-      headers: {
-        'x-functions-key': this.functionsAdminKey,
-        Accept: 'application/json,*/*'
-      }
-    };
-
-    return new BbPromise((resolve:Function, reject:Function) => {
-      logger.info('Pinging host status...');
-      request(options, (err:any, res:any, body:any) => {
-        if (err) return reject(err);
-        if (body && body.Error) return reject(body.Error);
-
-        if (res.statusCode !== 200) {
-          return body && body.Error ? reject(body.Error) : reject(body);
-        }
-
-        resolve(res);
-      });
-    });
-  }
-
-  public isExistingFunctionApp () {
+  public isExistingFunctionApp() {
     const webSiteManagementClient = new WebSiteManagementClient(this.principalCredentials, this.subscriptionId, null, null);
 
-    return webSiteManagementClient.webApps.get(this.resourceGroupName,this.functionAppName)
-      .then((result:any)=>{
+    return webSiteManagementClient.webApps.get(this.resourceGroupName, this.functionAppName)
+      .then((result: any) => {
         return result != null;
       })
+      .then((result:any)=>{
+        logger.debug(`The function App ${this.functionAppName} existence is: ${result}`);
+        this.existingFunctionApp = result;
+        return result;
+      })
+      .catch((error: any) => {
+        if (error.statusCode == 404) {
+          return false;
+        } else {
+          throw error;
+        }
+
+      });
   }
 
-  public getDeployedFunctionsNames () {
+  public getDeployedFunctionsNames() {
     const requestUrl = `https://${this.functionAppName}${config.scmDomain}${config.functionsApiPath}`;
     const options = {
       host: this.functionAppName + config.scmDomain,
@@ -266,10 +227,10 @@ export class AzureProvider {
       }
     };
 
-    return new BbPromise((resolve:Function, reject:Function) => {
+    return new Promise((resolve: Function, reject: Function) => {
       if (this.existingFunctionApp) {
         logger.info('Looking for deployed functions that are not part of the current deployment...');
-        request(options, (err:any, res:any, body:any) => {
+        request(options, (err: any, res: any, body: any) => {
           if (err) {
             if (err.message.includes('ENOTFOUND')) {
               resolve(res);
@@ -278,21 +239,22 @@ export class AzureProvider {
             }
           } else {
             if (res.statusCode === 200) {
-
               for (let functionNamesIndex = 0; functionNamesIndex < body.length; functionNamesIndex++) {
-                this.deployedFunctionNames.push(body[functionNamesIndex].name);
+                const name = body[functionNamesIndex].name;
+                logger.info(`Deployed function ${name} found`);
+                this.deployedFunctionNames.push(name);
               }
             }
             resolve(res);
           }
         });
       } else {
-        resolve('New service...');
+        resolve('New Function App ...');
       }
     });
   }
 
-  public getLogsStream (functionName:string) {
+  public getLogsStream(functionName: string) {
     const logOptions = {
       url: `https://${this.functionAppName}${config.scmDomain}${config.logStreamApiPath}${functionName}`,
       headers: {
@@ -310,7 +272,7 @@ export class AzureProvider {
       .pipe(process.stdout);
   }
 
-  public getInvocationId (functionName:string) {
+  public getInvocationId(functionName: string) {
     const options = {
       url: `https://${this.functionAppName}${config.scmDomain}${config.logInvocationsApiPath + this.functionAppName}-${functionName}/invocations?limit=5`,
       method: 'GET',
@@ -320,8 +282,8 @@ export class AzureProvider {
       }
     };
 
-    return new BbPromise((resolve:Function, reject:Function) => {
-      request(options, (err:any, response:any, body:any) => {
+    return new Promise((resolve: Function, reject: Function) => {
+      request(options, (err: any, response: any, body: any) => {
         if (err) return reject(err);
         if (response.statusCode !== 200) return reject(body);
 
@@ -332,7 +294,7 @@ export class AzureProvider {
     });
   }
 
-  public getLogsForInvocationId () {
+  public getLogsForInvocationId() {
     logger.info(`Logs for InvocationId: ${this.invocationId}`);
     const options = {
       url: `https://${this.functionAppName}${config.scmDomain}${config.logOutputApiPath}${this.invocationId}`,
@@ -343,8 +305,8 @@ export class AzureProvider {
       }
     };
 
-    return new BbPromise((resolve:Function, reject:Function) => {
-      request(options, (err:any, response:any, body:any) => {
+    return new Promise((resolve: Function, reject: Function) => {
+      request(options, (err: any, response: any, body: any) => {
         if (err) return reject(err);
         if (response.statusCode !== 200) return reject(body);
 
@@ -353,81 +315,21 @@ export class AzureProvider {
     });
   }
 
-  public invoke (functionName:string, eventType:any, eventData:any) {
-    if (eventType === 'http') {
-      let queryString = '';
-
-      if (eventData) {
-        if (typeof eventData === 'string') {
-          try {
-            eventData = JSON.parse(eventData);
-          }
-          catch (error) {
-            return BbPromise.reject('The specified input data isn\'t a valid JSON string. ' +
-                                    'Please correct it and try invoking the function again.');
-          }
-        }
-
-        queryString = Object.keys(eventData)
-                            .map((key) => `${key}=${eventData[key]}`)
-                            .join('&');
-      }
-
-      return new BbPromise((resolve:Function, reject:Function) => {
-        const options = {
-          url: `http://${this.functionAppName}${config.functionAppDomain}${config.functionAppApiPath + functionName}?${queryString}`,
-          method: 'GET',
-          json: true,
-        };
-
-        logger.info(`Invoking function "${functionName}"`);
-        request(options, (err:any, response:any, body:any) => {
-          if (err) return reject(err);
-          if (response.statusCode !== 200) return reject(body);
-          resolve(body);
-        });
-      });
-    }
-
-    const requestUrl = `https://${this.functionAppName}${config.functionsAdminApiPath}${functionName}`;
-
-    const options = {
-      host: config.functionAppDomain,
-      method: 'post',
-      body: eventData,
-      url: requestUrl,
-      json: true,
-      headers: {
-        'x-functions-key': this.functionsAdminKey,
-        Accept: 'application/json,*/*'
-      }
-    };
-
-    return new BbPromise((resolve:Function, reject:Function) => {
-      request(options, (err:any, res:any) => {
-        if (err) {
-          reject(err);
-        }
-        logger.info(`Invoked function at: ${requestUrl}. \nResponse statuscode: ${res.statusCode}`);
-        resolve(res);
-      });
-    });
-  }
-
-  public cleanUpFunctionsBeforeDeploy (serverlessFunctions:string[]) {
-    const deleteFunctionPromises:BbPromise<{}>[] = [];
-
+  public cleanUpFunctionsBeforeDeploy(serverlessFunctions: string[]) {
+    const deleteFunctionPromises: Promise<{}>[] = [];
+    logger.debug(`Clean up functoins before Deploy`);
     this.deployedFunctionNames.forEach((functionName) => {
+      logger.debug(`Checking function : ${functionName}`);
       if (serverlessFunctions.indexOf(functionName) < 0) {
         logger.info(`Deleting function : ${functionName}`);
         deleteFunctionPromises.push(this.deleteFunction(functionName));
       }
     });
 
-    return BbPromise.all(deleteFunctionPromises);
+    return Promise.all(deleteFunctionPromises);
   }
 
-  public deleteFunction(functionName:string) {
+  public deleteFunction(functionName: string) {
     const requestUrl = `https://${this.functionAppName}${config.scmVfsPath}${functionName}/?recursive=true`;
     const options = {
       host: this.functionAppName + config.scmDomain,
@@ -440,8 +342,8 @@ export class AzureProvider {
       }
     };
 
-    return new BbPromise((resolve:Function, reject:Function) => {
-      request(options, (err:any, res:any) => {
+    return new Promise((resolve: Function, reject: Function) => {
+      request(options, (err: any, res: any) => {
         if (err) {
           reject(err);
         } else {
@@ -451,8 +353,8 @@ export class AzureProvider {
     });
   }
 
-  public uploadFunction (functionZipFile:string) {
-    return new BbPromise((resolve:Function, reject:Function) => {
+  public uploadFunction(functionZipFile: string) {
+    return new Promise((resolve: Function, reject: Function) => {
       logger.info(`Uploading function: ${this.functionAppName}`);
 
       //Using kudu zipdeploy api.
@@ -468,7 +370,7 @@ export class AzureProvider {
       logger.debug(`request url is: ${requestUrl}`);
 
       fs.createReadStream(functionZipFile)
-        .pipe(request.post(options, (uploadZipErr:any, uploadZipResponse:any) => {
+        .pipe(request.post(options, (uploadZipErr: any, uploadZipResponse: any) => {
           if (uploadZipErr) {
             logger.info(`Uploading function ${this.functionAppName} failed`);
             reject(uploadZipErr);

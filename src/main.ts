@@ -3,7 +3,7 @@
 import * as program from "commander";
 import * as path from "path";
 import { PackhostGenerator, WebpackRunner, FunctionDeploy } from "./";
-import { ConfigLoader, IFuncpackConfig ,createLogger} from "./utils";
+import { ConfigLoader, IFuncpackConfig ,createLogger, FileHelper} from "./utils";
 import {DEFAULT_OUTPUT} from "./CONSTANTS";
 
 const logger = createLogger('azure.functions.webpack.main');
@@ -19,15 +19,20 @@ async function runCli() {
     //     .option("-o, --output <path>", "Path for output directory")
     //     .action(unpack);
 
-    p.command("pack <path>")
+    p.command("pack [path]")
         .description("Will pack the specified path or the current directory if none is specified")
         .option("-u, --uglify", "Uglify the project when webpacking")
         .option("-o, --output <path>", "Path for output directory")
         .action(pack);
 
-    p.command("deploy <unique-app-name>")
-        .option("-d --dir <path>", "bund directory")
+    p.command("publish <unique-app-name>")
+        .option("-d --dir <path>", "bundle directory")
         .description("Will pack the specified path or the current directory if none is specified")
+        .action(publish);
+
+    p.command("deploy <name> [path]")
+        .option("-o, --output <path>", "Path for output directory")
+        .description("Will pack the specified path or the current directory, and publish it to azure with given Function app name")
         .action(deploy);
 
     p.command("*", null, { noHelp: true, isDefault: true })
@@ -42,36 +47,6 @@ async function runCli() {
     }
 
 }
-
-// async function unpack(name: string, options: any) {
-//     if (options.debug) {
-//         process.env.DEBUG = "*";
-//     }
-//
-//     // Grab the route either from the option, the argument (if there is only 1)
-//     let projectRootPath = "";
-//     try {
-//         projectRootPath = name ?
-//             path.resolve(process.cwd(), name) : process.cwd();
-//     } catch (error) {
-//         logger.error(error);
-//         throw new Error("Could not determine route");
-//     }
-//
-//     let outputPath = DEFAULT_OUTPUT;
-//     try {
-//         if (options.output) {
-//             outputPath = path.join(options.output, outputPath);
-//         }
-//     } catch (e) {
-//         winston.error(e);
-//         throw new Error("Could not parse the output option");
-//     }
-//
-//     winston.info("Unpacking project at: " + projectRootPath);
-//     await Unpacker.unpack({ projectRootPath, outputPath });
-//     winston.info("Complete!");
-// }
 
 async function pack(name: string, options: any) {
     // TBD - allow loadConfig to get a filename from options
@@ -144,21 +119,34 @@ async function pack(name: string, options: any) {
         throw new Error("Could not webpack project");
     }
 
-    logger.info("Complete!");
-    process.exit(0);
+    logger.info("Pack Complete!");
 }
 
-async function deploy(name: string, options: any) {
+async function publish(name: string, options: any) {
   try{
-    logger.info("Deploying project");
+    logger.info("Publishing project");
     const bundlePath = options.dir || DEFAULT_OUTPUT;
+
+    if(!await FileHelper.exists(bundlePath)){
+      logger.info("The bundle folder is not existing");
+      process.exit(1);
+    }
+
     const deploy = new FunctionDeploy({functionAppName:name,bundlePath});
-    deploy.deploy();
-    logger.info("Deployment complete");
+    await deploy.deploy();
+    logger.info("Publishing complete");
   }catch (error) {
     logger.error(error);
-    throw new Error("Could not create zip file");
+    throw new Error("Error happenned while deploy the function app");
   }
 
 }
+
+async function deploy(name: string, projectPath:string,options: any) {
+    logger.info("Deploying project");
+    await pack(projectPath,options);
+    await publish(name,options);
+    logger.info("Project deployed");
+}
+
 runCli();
