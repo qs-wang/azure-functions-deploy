@@ -97,22 +97,6 @@ export class AzureProvider {
 
     let templateFilePath = path.join(__dirname, 'armTemplates', 'azuredeploy.json');
 
-    // if (gitUrl) {
-    //   templateFilePath = path.join(__dirname, 'armTemplates', 'azuredeployWithGit.json');
-    // }
-    // if (this.serverless.service.provider.armTemplate) {
-    //   templateFilePath = path.join(this.serverless.config.servicePath, this.serverless.service.provider.armTemplate.file);
-    //   const userParameters = this.serverless.service.provider.armTemplate.parameters;
-    //   const userParametersKeys = Object.keys(userParameters);
-    //
-    //   for (let paramIndex = 0; paramIndex < userParametersKeys.length; paramIndex++) {
-    //     const item = {};
-    //
-    //     item[userParametersKeys[paramIndex]] = { 'value': userParameters[userParametersKeys[paramIndex]] };
-    //     parameters = _.merge(parameters, item);
-    //   }
-    // }
-
     let template = JSON.parse(fs.readFileSync(templateFilePath, 'utf8'));
 
     // Check if there are custom environment variables defined that need to be
@@ -199,7 +183,7 @@ export class AzureProvider {
       .then((result: any) => {
         return result != null;
       })
-      .then((result:any)=>{
+      .then((result: any) => {
         logger.debug(`The function App ${this.functionAppName} existence is: ${result}`);
         this.existingFunctionApp = result;
         return result;

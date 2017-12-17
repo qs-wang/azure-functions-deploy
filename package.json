@@ -1,19 +1,22 @@
 {
-  "name": "@stackchat/azure-functions-pack",
-  "version": "0.3.2",
-  "description": "azure-functions-pack",
+  "name": "azure-functions-deploy",
+  "version": "0.0.1",
+  "description": "Pack and deploy azure functions with webpack,and Azure Kudu API",
   "license": "MIT",
-  "repository": "https://github.com/qs-wang/azure-functions-pack",
-  "author": "Microsoft Corp., Stackchat",
+  "repository": "https://github.com/qs-wang/azure-functions-deploy",
+  "author": "Q.S. Wang",
   "contributors": [
+    "Q.S. Wang (https://github.com/qs-wang)",
     "Chris Anderson <chrande@microsoft.com> (https://github.com/christopheranderson)",
-    "Q.S. Wang (https://github.com/qs-wang)"
+    "serverless-azure-functions"
+
   ],
   "bin": {
-    "funcpack": "./lib/main.js"
+    "funcdeploy": "./lib/main.js"
   },
   "keywords": [
     "azure-functions",
+    "deploy",
     "webpack"
   ],
   "files": [

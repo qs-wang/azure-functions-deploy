@@ -1,3 +1,3 @@
-export * from "./packhost-generator";
-export * from "./webpack-runner";
+export * from "./packhostGenerator";
+export * from "./webpackRunner";
 export * from "./functionPublish";

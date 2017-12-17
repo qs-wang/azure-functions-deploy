@@ -1,3 +1,3 @@
-export * from "./fs-helper";
-export * from "./config-loader";
+export * from "./fileHelper";
+export * from "./configLoader";
 export * from "./logger";

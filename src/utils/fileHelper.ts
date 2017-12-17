@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as zip from 'archiver';
 import { createLogger } from './logger';
 
-import {DEFAULT_OUTPUT,DEFAULT_INDEX,IFxFunction,IPackhostGeneratorOptions} from '../CONSTANTS';
+import { DEFAULT_OUTPUT, DEFAULT_INDEX, IFxFunction, IPackhostGeneratorOptions } from '../CONSTANTS';
 
 const logger = createLogger('azure.functions.webpack.FileHelper');
 
@@ -137,11 +137,11 @@ export class FileHelper {
   }
 
   public static copy(source: string, target: string): Promise<string> {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       const sourceStream = fs.createReadStream(source);
       const targetStream = fs.createWriteStream(target);
 
-      const rejectCleanup = function(err: any) {
+      const rejectCleanup = function (err: any) {
         sourceStream.destroy();
         targetStream.end();
         reject(err);
@@ -165,81 +165,71 @@ export class FileHelper {
     });
   }
 
-  public static async loadFunctionsFromDirectory(projectPath:string){
+  public static async loadFunctionsFromDirectory(projectPath: string) {
     const functionsMap: Map<string, IFxFunction> = new Map<string, IFxFunction>();
     const functions: string[] = (await FileHelper.readdir(projectPath))
-        .filter(async (item) =>
-            (await FileHelper.stat(path.resolve(projectPath, item))).isDirectory());
+      .filter(async (item) =>
+        (await FileHelper.stat(path.resolve(projectPath, item))).isDirectory());
     logger.debug(`Found these directories in project root: ${functions.join(', ')}`);
     for (const item of functions) {
-        if (await FileHelper.exists(path.resolve(projectPath, item, 'function.json'))) {
-            const fn = await FileHelper.loadFunction(path.resolve(projectPath, item));
-            if (fn !== null) {
-                functionsMap.set(item, fn);
-            }
+      if (await FileHelper.exists(path.resolve(projectPath, item, 'function.json'))) {
+        const fn = await FileHelper.loadFunction(path.resolve(projectPath, item));
+        if (fn !== null) {
+          functionsMap.set(item, fn);
         }
+      }
     }
 
     return functionsMap;
   }
 
   public static async loadFunction(name: string): Promise<IFxFunction> {
-      let entryPoint = null;
-      let scriptFile = null;
-      // let originalEntryPoint: string | boolean = false;
-      let originalScriptFile: string | boolean = false;
-      logger.debug(`Found function: ${name}`);
-      const fxJsonPath = path.resolve(name, 'function.json');
-      const fxJson = await FileHelper.readFileAsJSON(fxJsonPath);
+    let entryPoint = null;
+    let scriptFile = null;
+    // let originalEntryPoint: string | boolean = false;
+    let originalScriptFile: string | boolean = false;
+    logger.debug(`Found function: ${name}`);
+    const fxJsonPath = path.resolve(name, 'function.json');
+    const fxJson = await FileHelper.readFileAsJSON(fxJsonPath);
 
-      // TODO: Have to overwite this scriptFile setting later on. Having to use temporary setting right now.
-      if (fxJson._originalScriptFile) {
-          logger.debug(`Found originalScriptFile setting: ${fxJson._originalScriptFile}`);
-          scriptFile = fxJson._originalScriptFile;
-          originalScriptFile = fxJson._originalScriptFile;
-      } else if (fxJson.scriptFile && fxJson.scriptFile.endsWith('.js') && !fxJson._originalScriptFile) {
-          scriptFile = fxJson.scriptFile;
-          originalScriptFile = fxJson.scriptFile;
-      } else if (fxJson.scriptFile && !fxJson.scriptFile.endsWith('.js') && !fxJson._originalScriptFile) {
-          return null;
+    // TODO: Have to overwite this scriptFile setting later on. Having to use temporary setting right now.
+    if (fxJson._originalScriptFile) {
+      logger.debug(`Found originalScriptFile setting: ${fxJson._originalScriptFile}`);
+      scriptFile = fxJson._originalScriptFile;
+      originalScriptFile = fxJson._originalScriptFile;
+    } else if (fxJson.scriptFile && fxJson.scriptFile.endsWith('.js') && !fxJson._originalScriptFile) {
+      scriptFile = fxJson.scriptFile;
+      originalScriptFile = fxJson.scriptFile;
+    } else if (fxJson.scriptFile && !fxJson.scriptFile.endsWith('.js') && !fxJson._originalScriptFile) {
+      return null;
+    } else {
+      let dir: string[] = await FileHelper.readdir(name);
+      dir = dir.filter((f) => f.endsWith('.js'));
+      if (dir.length === 1) {
+        scriptFile = dir[0];
+      } else if (dir.find((v, i, o) => {
+        return v === DEFAULT_INDEX;
+      })) {
+        scriptFile = DEFAULT_INDEX;
       } else {
-          let dir: string[] = await FileHelper.readdir(name);
-          dir = dir.filter((f) => f.endsWith('.js'));
-          if (dir.length === 1) {
-              scriptFile = dir[0];
-          } else if (dir.find((v, i, o) => {
-              return v === DEFAULT_INDEX;
-          })) {
-              scriptFile = DEFAULT_INDEX;
-          } else {
-              logger.debug(`Function ${name} does not have a valid start file inside ${dir}`)
-              return null;
-              // throw new Error(`Function ${name} does not have a valid start file`);
-          }
-          originalScriptFile = scriptFile;
+        logger.debug(`Function ${name} does not have a valid start file inside ${dir}`)
+        return null;
+        // throw new Error(`Function ${name} does not have a valid start file`);
       }
+      originalScriptFile = scriptFile;
+    }
 
-       // TODO: improve the logic for choosing entry point - failure sure not all scenarios are covered here.
-       // TODO: Have to overwrite this entryPoint later on. Using temporary setting for now.
-      // if (fxJson._originalEntryPoint) {
-      //     logger.debug('Found originalEntryPoint setting: %s', fxJson._originalEntryPoint);
-      //     entryPoint = fxJson._originalEntryPoint;
-      //     originalEntryPoint = fxJson._originalEntryPoint;
-      // } else
+    if (fxJson.entryPoint) {
+      entryPoint = fxJson.entryPoint;
+    }
 
-      if (fxJson.entryPoint) {
-          entryPoint = fxJson.entryPoint;
-          // originalEntryPoint = fxJson.entryPoint;
-      }
-
-      logger.debug(`Loaded function(${name}) using entryPoint: ${scriptFile} - scriptFile: ${entryPoint}`);
-      return Promise.resolve({
-          name,
-          scriptFile,
-          entryPoint,
-          // _originalEntryPoint: originalEntryPoint,
-          _originalScriptFile: originalScriptFile,
-      });
+    logger.debug(`Loaded function(${name}) using entryPoint: ${scriptFile} - scriptFile: ${entryPoint}`);
+    return Promise.resolve({
+      name,
+      scriptFile,
+      entryPoint,
+      _originalScriptFile: originalScriptFile,
+    });
   }
 
 
@@ -254,7 +244,7 @@ export class FileHelper {
 
         // listen for all archive data to be written
         // 'close' event is fired only when a file descriptor is involved
-        output.on('close', function() {
+        output.on('close', function () {
           logger.info(archive.pointer() + ' total bytes');
           logger.info('archiver has been finalized and the output file descriptor has closed.');
           resolve(outputFile);
@@ -263,16 +253,16 @@ export class FileHelper {
         // This event is fired when the data source is drained no matter what was the data source.
         // It is not part of this library but rather from the NodeJS Stream API.
         // @see: https://nodejs.org/api/stream.html#stream_event_end
-        output.on('end', function() {
+        output.on('end', function () {
           logger.info('Data has been drained');
         });
 
-        output.on('error', function(err: any) {
+        output.on('error', function (err: any) {
           throw err;
         });
 
         // good practice to catch warnings (ie stat failures and other non-blocking errors)
-        archive.on('warning', function(err: any) {
+        archive.on('warning', function (err: any) {
           if (err.code === 'ENOENT') {
             // log warning
           } else {
@@ -282,7 +272,7 @@ export class FileHelper {
         });
 
         // good practice to catch this error explicitly
-        archive.on('error', function(err: any) {
+        archive.on('error', function (err: any) {
           throw err;
         });
 

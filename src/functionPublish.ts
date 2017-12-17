@@ -10,7 +10,7 @@ export class FunctionDeploy {
 
   azure: AzureProvider;
   bundlePath: string;
-  //TODO: options??
+
   constructor(options: any) {
     this.bundlePath = options.bundlePath;
     this.azure = new AzureProvider(options);
