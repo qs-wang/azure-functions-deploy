@@ -9,7 +9,6 @@
     "Q.S. Wang (https://github.com/qs-wang)",
     "Chris Anderson <chrande@microsoft.com> (https://github.com/christopheranderson)",
     "serverless-azure-functions"
-
   ],
   "bin": {
     "funcdeploy": "./lib/main.js"

@@ -17,7 +17,7 @@ const WebSiteManagementClient = require('azure-arm-website');
 const dns = require('dns');
 const jsonpath = require('jsonpath');
 const { login } = require('az-login');
-const config = require('../../config');
+const config = require('./config');
 const pkg = require('../../package.json');
 const logger = createLogger("azure.functions.webpack.azureProvider");
 
