@@ -102,6 +102,7 @@ Usage: publish [options] <name>
     -h, --help           output usage information
     -u, --uglify         Uglify the project when webpacking
     -d, --dir <path>     Path for bundle directory
+    -l, --location <location> the host location,e.g. westus, australiaeast, and etc. Default value is westus.
 ```
 
 ### deploy

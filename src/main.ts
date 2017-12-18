@@ -124,7 +124,7 @@ async function publish(name: string, options: any) {
       process.exit(1);
     }
 
-    const deploy = new FunctionDeploy({ functionAppName: name, bundlePath });
+    const deploy = new FunctionDeploy({ functionAppName: name, bundlePath, location: options.location });
     await deploy.deploy();
     logger.info("Publishing complete");
   } catch (error) {
