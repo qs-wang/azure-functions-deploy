@@ -35,13 +35,23 @@ NOde: This is a different version of the original azure's code.
 ## How to run
 
 In the Function App directory:
-
 ```
 npm install -g azure-functions-deploy
+
 funcdeploy pack ./
 funcdeploy publish unique-function-name
 funcdeploy deploy unique-function-name
 ```
+
+## Example
+```
+npm install -g azure-functions-deploy
+git clone https://github.com/qs-wang/azure-functions-deploy.git
+cd azure-functions-deploy/sample
+funcdeploy pack ./
+funcdeploy publish mysamplefunction456
+```
+Node: you need have a valid azure subscription to run the publish command. For non-interactive login, you need install the Azure CLI and run the az login command beforehand. 
 
 ## API
 
@@ -107,6 +117,8 @@ Usage: deploy [options] <name>
     -o, --output <path>  Path for output directory
 ```
 
+
+git clone 
 <!-- ### funcdeploy.config.json
 
 Pack will optionally take in a config file that will let you further customize the behavior. The config file must be in the directory you run the command from and named `funcpack.config.json`.
