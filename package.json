@@ -1,6 +1,6 @@
 {
   "name": "azure-functions-deploy",
-  "version": "0.0.4",
+  "version": "0.0.6",
   "description": "Pack and deploy azure functions with webpack,and Azure Kudu API",
   "license": "MIT",
   "repository": "https://github.com/qs-wang/azure-functions-deploy",

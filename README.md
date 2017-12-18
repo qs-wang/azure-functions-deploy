@@ -48,6 +48,7 @@ funcdeploy deploy unique-function-name
 npm install -g azure-functions-deploy
 git clone https://github.com/qs-wang/azure-functions-deploy.git
 cd azure-functions-deploy/sample
+npm install
 funcdeploy pack ./
 funcdeploy publish mysamplefunction456
 ```

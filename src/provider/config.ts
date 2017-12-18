@@ -1,4 +1,4 @@
-export const config = {
+module.exports = {
   bearer: 'Bearer ',
   functionAppApiPath: '/api/',
   functionAppDomain: '.azurewebsites.net',
